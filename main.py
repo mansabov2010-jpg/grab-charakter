@@ -23,17 +23,24 @@ class AdminStates(StatesGroup):
     add_waifu_img = State()
     new_admin_id = State()
 
-# Veb-server va API (Render uxlab qolmasligi va mini ilova bilan ishlash uchun)
+# CORS sarlavhalari (Mini ilova bilan muammosiz ishlashi uchun)
+def add_cors(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    return response
+
 async def health_check(request):
-    return web.Response(text="Grab Character Bot 24/7 ishlamoqda!")
+    return add_cors(web.Response(text="Grab Character Bot 24/7 ishlamoqda!"))
 
 async def api_get_user(request):
     try:
         user_id = int(request.query.get("user_id", 0))
-        cursor.execute("SELECT balance, energy FROM users WHERE user_id = ?", (user_id,))
-        row = cursor.fetchone()
+        username = request.query.get("username", "")
+        first_name = request.query.get("first_name", "Foydalanuvchi")
         
-        # Haremda foydalanuvchining personajlarini olish
+        balance, energy = get_user(user_id, username, first_name)
+        
         cursor.execute("""
             SELECT w.id, w.name, w.source, w.rarity, w.price, w.image_url 
             FROM user_waifus uw JOIN waifus w ON uw.waifu_id = w.id WHERE uw.user_id = ?
@@ -42,42 +49,52 @@ async def api_get_user(request):
 
         settings = get_all_settings()
 
-        if row:
-            return web.json_response({"balance": row[0], "energy": row[1], "waifus": waifus, "settings": settings})
-        return web.json_response({"balance": 0, "energy": 100, "waifus": [], "settings": settings})
+        res = web.json_response({"balance": balance, "energy": energy, "waifus": waifus, "settings": settings})
+        return add_cors(res)
     except Exception as e:
-        return web.json_response({"error": str(e)}, status=400)
+        res = web.json_response({"error": str(e)}, status=400)
+        return add_cors(res)
 
 async def api_update_user(request):
+    if request.method == 'OPTIONS':
+        return add_cors(web.Response())
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
         balance = int(data.get("balance", 0))
         update_user_balance(user_id, balance)
-        return web.json_response({"status": "success"})
+        res = web.json_response({"status": "success"})
+        return add_cors(res)
     except Exception as e:
-        return web.json_response({"error": str(e)}, status=400)
+        res = web.json_response({"error": str(e)}, status=400)
+        return add_cors(res)
 
 async def api_admin_settings(request):
+    if request.method == 'OPTIONS':
+        return add_cors(web.Response())
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
         if not is_admin(user_id):
-            return web.json_response({"error": "Unauthorized"}, status=403)
+            return add_cors(web.json_response({"error": "Unauthorized"}, status=403))
         
         key = data.get("key")
         value = data.get("value")
         set_setting(key, value)
-        return web.json_response({"status": "success"})
+        res = web.json_response({"status": "success"})
+        return add_cors(res)
     except Exception as e:
-        return web.json_response({"error": str(e)}, status=400)
+        res = web.json_response({"error": str(e)}, status=400)
+        return add_cors(res)
 
 async def start_web_server():
     app = web.Application()
     app.router.add_get('/', health_check)
     app.router.add_get('/api/get_user', api_get_user)
     app.router.add_post('/api/update_user', api_update_user)
+    app.router.add_options('/api/update_user', api_update_user)
     app.router.add_post('/api/admin_settings', api_admin_settings)
+    app.router.add_options('/api/admin_settings', api_admin_settings)
     
     runner = web.AppRunner(app)
     await runner.setup()
@@ -202,7 +219,7 @@ async def w_rarity(message: types.Message, state: FSMContext):
 async def w_price(message: types.Message, state: FSMContext):
     await state.update_data(price=int(message.text))
     await state.set_state(AdminStates.add_waifu_img)
-    await message.answer("5️⃣ Rasm havolasiga (URL) yuboring:")
+    await message.answer("5️⃣ Rasm havolasini (URL) yuboring:")
 
 @dp.message(AdminStates.add_waifu_img)
 async def w_img(message: types.Message, state: FSMContext):
