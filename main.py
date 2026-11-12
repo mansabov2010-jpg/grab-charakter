@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonWebApp, WebAppInfo
 from database import init_db, set_setting, get_setting, is_admin, add_admin, cursor, conn
 
-TOKEN = "BOT_TOKENINGIZNI_SHU_YERGA_QO_YING"
+TOKEN = "9111857366:AAHx321dtWgJvO5zindpzWIY_1iWq4mgjlc"
 WEBAPP_URL = "https://mansabov2010-jpg.github.io/grab-charakter/"
 
 bot = Bot(token=TOKEN)
