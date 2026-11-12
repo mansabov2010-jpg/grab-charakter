@@ -6,10 +6,9 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonWebApp, WebAppInfo
-from database import init_db, set_setting, get_setting, cursor, conn
+from database import init_db, set_setting, get_setting, is_admin, add_admin, cursor, conn
 
 TOKEN = "BOT_TOKENINGIZNI_SHU_YERGA_QO_YING"
-ADMIN_ID = 7986354170 # Sizning Telegram ID
 WEBAPP_URL = "https://mansabov2010-jpg.github.io/grab-charakter/"
 
 bot = Bot(token=TOKEN)
@@ -22,6 +21,7 @@ class AdminStates(StatesGroup):
     add_waifu_rarity = State()
     add_waifu_price = State()
     add_waifu_img = State()
+    new_admin_id = State() # Yangi admin ID sini kiritish uchun
 
 # Render 24/7 ishlashi uchun veb-server
 async def health_check(request):
@@ -56,16 +56,18 @@ async def cmd_start(message: types.Message):
     await message.answer(
         f"💎 <b>Gʀᴀʙ Cʜᴀʀᴀᴄᴛᴇʀ'ɢᴀ Xᴜꜱʜ Kᴇʟɪʙꜱɪᴢ!</b>\n\n"
         f"👋 Sᴀʟᴏᴍ, <b>{message.from_user.first_name}</b>!\n\n"
-        f"🌟 Bᴜ ʙᴏᴛ ᴏʀǫᴀʟɪ ꜱᴇᴠɪᴍʟɪ ᴘᴇʀꜱᴏɴᴀᴊʟᴀʀɴɪ ʏɪɢ'ɪɴɢ ᴠᴀ ɢᴜʀᴜʜʟᴀʀɴɪ ᴊᴏɴʟᴀɴᴛɪʀɪɴɢ!\n"
+        f"🌟 Bᴜ ʙᴏᴛ ᴏʀǫᴀʟɪ ꜱᴇᴠɪᴍʟɪ ᴘᴇʀꜱᴏɴᴀᴊʟᴀﺭɴɪ ʏɪɢ'ɪɴɢ ᴠᴀ ɢᴜʀᴜʜʟᴀʀɴɪ ᴊᴏɴʟᴀɴᴛɪʀɪɴɢ!\n"
         f"✨ — — — — — — — — — ✨",
         parse_mode="HTML",
         reply_markup=kb
     )
 
+# --- ADMIN PANEL (Faqat bazadagi adminlarira ochiladi) ---
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
+    if not is_admin(message.from_user.id):
         return
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🪙 Tanga limiti", callback_data="set_tap_limit"),
          InlineKeyboardButton(text="⏳ Tiklanish vaqti", callback_data="set_tap_cooldown")],
@@ -75,12 +77,35 @@ async def admin_panel(message: types.Message):
         [InlineKeyboardButton(text="🎨 Fon xiraligi (Blur)", callback_data="set_bg_blur"),
          InlineKeyboardButton(text="🔵 Ko'k rang ochligi", callback_data="set_blue_shade")],
         [InlineKeyboardButton(text="📊 Drop foizlari", callback_data="set_drop_basic")],
-        [InlineKeyboardButton(text="➕ Waifu qo'shish", callback_data="add_waifu")]
+        [InlineKeyboardButton(text="➕ Waifu qo'shish", callback_data="add_waifu")],
+        [InlineKeyboardButton(text="🛡️ Yangi Admin qo'shish", callback_data="add_new_admin")] # Alohida bo'lim
     ])
-    await message.answer("⚙️ <b>Boshqaruv Paneli:</b>", parse_mode="HTML", reply_markup=kb)
+    await message.answer("⚙️ <b>To'liq Boshqaruv Paneli:</b>", parse_mode="HTML", reply_markup=kb)
+
+# Yangi admin qo'shish tugmasi bosilganda
+@dp.callback_query(F.data == "add_new_admin")
+async def start_add_admin(call: types.CallbackQuery, state: FSMContext):
+    if not is_admin(call.from_user.id):
+        return
+    await state.set_state(AdminStates.new_admin_id)
+    await call.message.answer("🛡️ Yangi adminning Telegram ID raqamini yuboring:")
+
+@dp.message(AdminStates.new_admin_id)
+async def save_new_admin(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    try:
+        new_id = int(message.text.strip())
+        add_admin(new_id)
+        await state.clear()
+        await message.answer(f"✅ <code>{new_id}</code> ID raqamli foydalanuvchi muvaffaqiyatli <b>Admin</b> etib tayinlandi!", parse_mode="HTML")
+    except ValueError:
+        await message.answer("❌ Xato! Faqat raqamlardan iborat Telegram ID kiriting:")
 
 @dp.callback_query(F.data.startswith("set_"))
 async def ask_setting_value(call: types.CallbackQuery, state: FSMContext):
+    if not is_admin(call.from_user.id):
+        return
     key = call.data.replace("set_", "")
     await state.update_data(setting_key=key)
     await state.set_state(AdminStates.waiting_value)
@@ -88,6 +113,8 @@ async def ask_setting_value(call: types.CallbackQuery, state: FSMContext):
 
 @dp.message(AdminStates.waiting_value)
 async def save_setting_value(message: types.Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
     data = await state.get_data()
     set_setting(data["setting_key"], message.text)
     await state.clear()
@@ -95,6 +122,8 @@ async def save_setting_value(message: types.Message, state: FSMContext):
 
 @dp.callback_query(F.data == "add_waifu")
 async def start_add_waifu(call: types.CallbackQuery, state: FSMContext):
+    if not is_admin(call.from_user.id):
+        return
     await state.set_state(AdminStates.add_waifu_name)
     await call.message.answer("1️⃣ Waifu ismini kiriting:")
 
