@@ -24,11 +24,19 @@
         .click-btn { width: 150px; height: 150px; background: radial-gradient(circle, #00d2ff, #005f73); border-radius: 50%; border: none; font-size: 32px; font-weight: bold; color: #fff; cursor: pointer; box-shadow: 0 0 20px rgba(0, 210, 255, 0.5); margin: 15px auto; display: flex; align-items: center; justify-content: center; transition: 0.1s; outline: none; }
         .click-btn:active { transform: scale(0.95); }
         
-        .reward-box { background: rgba(25, 35, 45, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 15px; text-align: center; margin-bottom: 15px; }
-        .claim-btn { background: #00d2ff; color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%; outline: none; }
+        .reward-container { display: flex; gap: 10px; margin-bottom: 15px; }
+        .reward-box { flex: 1; background: rgba(25, 35, 45, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 12px; text-align: center; }
+        .claim-btn { background: #00d2ff; color: #000; border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%; font-size: 12px; outline: none; }
         .claim-btn:active { opacity: 0.8; }
 
-        .admin-panel-btn { background: #ff4757; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; cursor: pointer; display: none; }
+        .admin-panel-btn { background: #ff4757; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; cursor: pointer; display: none; outline: none; }
+        
+        /* Ilova ichidagi Admin Panel Modal oynasi */
+        #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; padding: 20px; overflow-y: auto; }
+        .admin-group { margin-bottom: 12px; background: #121c24; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        .admin-group label { font-size: 13px; color: #00d2ff; display: block; margin-bottom: 5px; }
+        .admin-group input { width: 100%; padding: 8px; background: #0b141a; border: 1px solid #444; color: #fff; border-radius: 6px; }
+        .admin-save-btn { background: #00d2ff; color: #000; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 5px; width: 100%; }
 
         nav { display: flex; justify-content: space-around; background: #121c24; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.1); }
         .nav-item { background: none; border: none; color: #888; font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; outline: none; }
@@ -45,8 +53,9 @@
         <div class="balance-box" id="headerBalance">💎 0 GC</div>
     </header>
 
+    <!-- ASOSIY BO'LIM -->
     <div id="tab-asosiy" class="content active">
-        <button class="admin-panel-btn" id="adminBtn" onclick="openAdminPanel()">⚙️ Ilova Admin Paneli</button>
+        <button class="admin-panel-btn" id="adminBtn" onclick="toggleAdminPanel(true)">⚙️ Ilova Admin Paneli</button>
 
         <div class="profile-card">
             <div class="avatar" id="userAvatarContainer">
@@ -63,31 +72,65 @@
             <p id="limitText" style="color: #888; font-size: 14px;">Limit: 100 / 100</p>
         </div>
 
-        <div class="reward-box">
-            <h4>🎁 Kunlik Sovg'a</h4>
-            <p style="font-size: 13px; color: #888; margin-top: 5px;">Har 24 soatda bepul tanga oling!</p>
-            <button class="claim-btn" id="claimBtn" onclick="claimDaily()">Sovg'ani Olish (+50 GC)</button>
+        <!-- Kunlik Sovg'alar (Ikki qismga bo'lingan) -->
+        <div class="reward-container">
+            <div class="reward-box">
+                <h4 style="font-size: 14px;">🪙 Kunlik Tanga</h4>
+                <button class="claim-btn" id="claimCoinBtn" onclick="claimDailyCoin()">Olish (+<span id="dailyCoinVal">50</span>)</button>
+            </div>
+            <div class="reward-box">
+                <h4 style="font-size: 14px;">💖 Kunlik Waifu</h4>
+                <button class="claim-btn" id="claimWaifuBtn" onclick="claimDailyWaifu()">Olish</button>
+            </div>
         </div>
     </div>
 
+    <!-- HAREM -->
     <div id="tab-harem" class="content">
         <div class="section-title">✨ Sizning Haremingiz</div>
-        <p style="color: #888;">Hozircha personajlar yo'q (0).</p>
+        <div id="haremList" style="color: #888;">Hozircha personajlar yo'q (0).</div>
     </div>
 
+    <!-- DO'KON -->
     <div id="tab-do'kon" class="content">
         <div class="section-title">🛒 Do'kon</div>
         <p style="color: #888;">Do'kon bo'sh.</p>
     </div>
 
+    <!-- BOZOR -->
     <div id="tab-bozor" class="content">
         <div class="section-title">📊 Bozor</div>
         <p style="color: #888;">Savdo-sotiq mavjud emas.</p>
     </div>
 
+    <!-- O'YINLAR -->
     <div id="tab-oyinlar" class="content">
         <div class="section-title">🎮 Mini O'yinlar</div>
         <p style="color: #888;">Tez kunda...</p>
+    </div>
+
+    <!-- ILOVA ICHIDAGI ADMIN PANEL MODAL OYNASI -->
+    <div id="adminModal">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="color: #00d2ff;">⚙️ Ilova Admin Paneli</h3>
+            <button onclick="toggleAdminPanel(false)" style="background:none; border:none; color:#fff; font-size:22px; cursor:pointer;">✕</button>
+        </div>
+        
+        <div class="admin-group">
+            <label>Tanga limiti:</label>
+            <input type="text" id="adm_tap_limit">
+            <button class="admin-save-btn" onclick="saveSetting('tap_limit', 'adm_tap_limit')">Saqlash</button>
+        </div>
+        <div class="admin-group">
+            <label>Kunlik Tanga miqdori:</label>
+            <input type="text" id="adm_daily_reward">
+            <button class="admin-save-btn" onclick="saveSetting('daily_reward', 'adm_daily_reward')">Saqlash</button>
+        </div>
+        <div class="admin-group">
+            <label>Reklama matni:</label>
+            <input type="text" id="adm_ad_text">
+            <button class="admin-save-btn" onclick="saveSetting('ad_text', 'adm_ad_text')">Saqlash</button>
+        </div>
     </div>
 
     <nav>
@@ -105,6 +148,7 @@
         let userBalance = 0;
         let tapLimit = 100;
         let userId = 0;
+        let settingsData = {};
 
         const user = tg.initDataUnsafe?.user;
         if (user) {
@@ -122,13 +166,26 @@
                 document.getElementById('adminBtn').style.display = "block";
             }
 
-            // Serverdan foydalanuvchining saqlangan ma'lumotlarini yuklab olish
             fetch(`/api/get_user?user_id=${user.id}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.balance !== undefined) {
                         userBalance = data.balance;
                         updateUI();
+                    }
+                    if (data.settings) {
+                        settingsData = data.settings;
+                        document.getElementById('dailyCoinVal').innerText = settingsData.daily_reward || 50;
+                        document.getElementById('adm_tap_limit').value = settingsData.tap_limit || 100;
+                        document.getElementById('adm_daily_reward').value = settingsData.daily_reward || 50;
+                        document.getElementById('adm_ad_text').value = settingsData.ad_text || "";
+                    }
+                    if (data.waifus && data.waifus.length > 0) {
+                        let html = '';
+                        data.waifus.forEach(w => {
+                            html += `<div style="background:rgba(25,35,45,0.8); padding:10px; border-radius:10px; margin-bottom:10px;"><b>${w.name}</b> (${w.source})</div>`;
+                        });
+                        document.getElementById('haremList').innerHTML = html;
                     }
                 }).catch(err => console.log(err));
         }
@@ -152,23 +209,50 @@
                 userBalance += 1;
                 tapLimit -= 1;
                 updateUI();
-                saveUserData(); // Har safar bosganda bazaga saqlanadi
+                saveUserData();
             }
         }
 
-        function claimDaily() {
-            userBalance += 50;
+        function claimDailyCoin() {
+            let reward = parseInt(settingsData.daily_reward || 50);
+            userBalance += reward;
             updateUI();
             saveUserData();
-            const btn = document.getElementById('claimBtn');
+            const btn = document.getElementById('claimCoinBtn');
             btn.innerText = "Olindi ✅";
             btn.style.background = "#333";
             btn.style.color = "#777";
             btn.disabled = true;
         }
 
-        function openAdminPanel() {
-            alert("⚙️ Ilova Admin Paneli: Barcha sozlamalar shu yerda boshqariladi.");
+        function claimDailyWaifu() {
+            alert("Bugungi kunlik waifu olindi!");
+            const btn = document.getElementById('claimWaifuBtn');
+            btn.innerText = "Olindi ✅";
+            btn.style.background = "#333";
+            btn.style.color = "#777";
+            btn.disabled = true;
+        }
+
+        function toggleAdminPanel(show) {
+            document.getElementById('adminModal').style.display = show ? 'block' : 'none';
+        }
+
+        function saveSetting(key, inputId) {
+            let val = document.getElementById(inputId).value;
+            fetch('/api/admin_settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, key: key, value: val })
+            }).then(res => res.json()).then(data => {
+                if(data.status === 'success') {
+                    alert("✅ Saqlandi!");
+                    settingsData[key] = val;
+                    if(key === 'daily_reward') document.getElementById('dailyCoinVal').innerText = val;
+                } else {
+                    alert("❌ Xatolik yuz berdi!");
+                }
+            });
         }
 
         function switchTab(tabName, btnElement) {
