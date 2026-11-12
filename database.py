@@ -11,7 +11,7 @@ def init_db():
     )
     """)
     
-    # Har bir foydalanuvchining balansini, energiyasini va oxirgi sovg'a vaqtini saqlaydigan jadval
+    # Foydalanuvchilar ma'lumotlari
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
@@ -19,10 +19,23 @@ def init_db():
         first_name TEXT,
         balance INTEGER DEFAULT 0,
         energy INTEGER DEFAULT 100,
-        last_daily TEXT DEFAULT ''
+        last_daily_coin TEXT DEFAULT '',
+        last_daily_waifu TEXT DEFAULT ''
     )
     """)
     
+    # Foydalanuvchi yig'gan waifular (Harem)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_waifus (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        waifu_id INTEGER,
+        FOREIGN KEY(user_id) REFERENCES users(user_id),
+        FOREIGN KEY(waifu_id) REFERENCES waifus(id)
+    )
+    """)
+    
+    # Baza bo'sh turishi kerak, oldindan waifu qo'shilmaydi
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS waifus (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +60,7 @@ def init_db():
         "tap_limit": "100",
         "tap_cooldown": "60",
         "daily_reward": "50",
+        "daily_waifu_reward": "1",
         "bg_blur": "6",
         "blue_shade": "0.35",
         "ad_text": "Yangi anime kanallarga obuna bo'ling!",
@@ -70,6 +84,10 @@ def get_setting(key):
     row = cursor.fetchone()
     return row[0] if row else None
 
+def get_all_settings():
+    cursor.execute("SELECT key, value FROM settings")
+    return dict(cursor.fetchall())
+
 def is_admin(user_id: int) -> bool:
     cursor.execute("SELECT user_id FROM admins WHERE user_id = ?", (user_id,))
     return cursor.fetchone() is not None
@@ -78,7 +96,6 @@ def add_admin(user_id: int):
     cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (user_id,))
     conn.commit()
 
-# Foydalanuvchini bazadan olish yoki yangi ochish
 def get_user(user_id: int, username: str, first_name: str):
     cursor.execute("SELECT balance, energy FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
@@ -89,7 +106,6 @@ def get_user(user_id: int, username: str, first_name: str):
         return 0, 100
     return row[0], row[1]
 
-# Foydalanuvchi balansini yangilab borish
 def update_user_balance(user_id: int, balance: int):
     cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (balance, user_id))
     conn.commit()
