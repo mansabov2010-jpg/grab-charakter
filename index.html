@@ -31,7 +31,6 @@
 
         .admin-panel-btn { background: #ff4757; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: bold; width: 100%; margin-bottom: 15px; cursor: pointer; display: none; outline: none; }
         
-        /* Ilova ichidagi Admin Panel Modal oynasi */
         #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; padding: 20px; overflow-y: auto; }
         .admin-group { margin-bottom: 12px; background: #121c24; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
         .admin-group label { font-size: 13px; color: #00d2ff; display: block; margin-bottom: 5px; }
@@ -53,7 +52,6 @@
         <div class="balance-box" id="headerBalance">💎 0 GC</div>
     </header>
 
-    <!-- ASOSIY BO'LIM -->
     <div id="tab-asosiy" class="content active">
         <button class="admin-panel-btn" id="adminBtn" onclick="toggleAdminPanel(true)">⚙️ Ilova Admin Paneli</button>
 
@@ -72,7 +70,6 @@
             <p id="limitText" style="color: #888; font-size: 14px;">Limit: 100 / 100</p>
         </div>
 
-        <!-- Kunlik Sovg'alar (Ikki qismga bo'lingan) -->
         <div class="reward-container">
             <div class="reward-box">
                 <h4 style="font-size: 14px;">🪙 Kunlik Tanga</h4>
@@ -85,31 +82,26 @@
         </div>
     </div>
 
-    <!-- HAREM -->
     <div id="tab-harem" class="content">
         <div class="section-title">✨ Sizning Haremingiz</div>
         <div id="haremList" style="color: #888;">Hozircha personajlar yo'q (0).</div>
     </div>
 
-    <!-- DO'KON -->
     <div id="tab-do'kon" class="content">
         <div class="section-title">🛒 Do'kon</div>
         <p style="color: #888;">Do'kon bo'sh.</p>
     </div>
 
-    <!-- BOZOR -->
     <div id="tab-bozor" class="content">
         <div class="section-title">📊 Bozor</div>
         <p style="color: #888;">Savdo-sotiq mavjud emas.</p>
     </div>
 
-    <!-- O'YINLAR -->
     <div id="tab-oyinlar" class="content">
         <div class="section-title">🎮 Mini O'yinlar</div>
         <p style="color: #888;">Tez kunda...</p>
     </div>
 
-    <!-- ILOVA ICHIDAGI ADMIN PANEL MODAL OYNASI -->
     <div id="adminModal">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="color: #00d2ff;">⚙️ Ilova Admin Paneli</h3>
@@ -142,6 +134,9 @@
     </nav>
 
     <script>
+        // Render manzili avtomatik to'g'ri yozildi:
+        const BACKEND_URL = "https://grab-charakter.onrender.com";
+
         const tg = window.Telegram.WebApp;
         tg.expand();
 
@@ -166,7 +161,7 @@
                 document.getElementById('adminBtn').style.display = "block";
             }
 
-            fetch(`/api/get_user?user_id=${user.id}`)
+            fetch(`${BACKEND_URL}/api/get_user?user_id=${user.id}&username=${encodeURIComponent(user.username || '')}&first_name=${encodeURIComponent(user.first_name || '')}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.balance !== undefined) {
@@ -187,7 +182,7 @@
                         });
                         document.getElementById('haremList').innerHTML = html;
                     }
-                }).catch(err => console.log(err));
+                }).catch(err => console.log("Xatolik:", err));
         }
 
         function updateUI() {
@@ -197,11 +192,11 @@
 
         function saveUserData() {
             if (!userId) return;
-            fetch('/api/update_user', {
+            fetch(`${BACKEND_URL}/api/update_user`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: userId, balance: userBalance })
-            }).catch(err => console.log(err));
+            }).catch(err => console.log("Saqlashda xato:", err));
         }
 
         function tapCoin() {
@@ -240,7 +235,7 @@
 
         function saveSetting(key, inputId) {
             let val = document.getElementById(inputId).value;
-            fetch('/api/admin_settings', {
+            fetch(`${BACKEND_URL}/api/admin_settings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: userId, key: key, value: val })
