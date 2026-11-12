@@ -2,40 +2,382 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grab Character Mini App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grab Character</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        :root {
+            --bg-blur: 6px;
+            --blue-tint: rgba(14, 116, 144, 0.35); /* Yengil ochroq ko'k tus */
+            --card-bg: rgba(15, 23, 42, 0.78);
+            --accent: #38bdf8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; user-select: none; }
         body {
-            background: linear-gradient(135deg, #0f172a, #1e3a8a);
-            color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
+            background-color: #090d16;
+            color: #fff;
+            min-height: 100vh;
+            padding-bottom: 80px;
+            position: relative;
+            overflow-x: hidden;
         }
-        .container {
-            text-align: center;
-            padding: 20px;
+        /* Orqa fon rasmi va xiralashtirish */
+        .bg-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://raw.githubusercontent.com/mansabov2010-jpg/grab-charakter/main/bg.jpg');
+            background-size: cover; background-position: center;
+            filter: blur(var(--bg-blur));
+            z-index: -2;
         }
-        h1 {
-            font-size: 24px;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
-            color: #38bdf8;
+        .bg-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, var(--blue-tint), rgba(9, 13, 22, 0.88));
+            z-index: -1;
         }
-        p {
-            color: #94a3b8;
-            font-size: 14px;
+
+        /* Yuqori panel */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; background: var(--card-bg); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(56, 189, 248, 0.2);
         }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 16px; }
+        .emblem {
+            width: 36px; height: 36px; border-radius: 10px; background: #0f172a;
+            border: 1.5px solid var(--accent); display: flex; align-items: center;
+            justify-content: center; color: var(--accent); font-weight: 900;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+        .balance-box {
+            background: rgba(56, 189, 248, 0.15); border: 1px solid var(--accent);
+            padding: 6px 12px; border-radius: 20px; font-weight: bold; color: var(--accent);
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        /* Profil kartasi */
+        .profile-card {
+            margin: 14px 16px; padding: 12px 16px; background: var(--card-bg);
+            border-radius: 16px; display: flex; align-items: center; gap: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .avatar { width: 46px; height: 46px; border-radius: 50%; background: #1e293b; border: 2px solid var(--accent); }
+        .user-info h3 { font-size: 15px; }
+        .user-info p { font-size: 12px; color: #94a3b8; }
+
+        /* Asosiy menyu (Clicker + Kunlik sovg'a) */
+        .main-grid {
+            display: grid; grid-template-columns: 2fr 1fr; gap: 12px; padding: 0 16px; align-items: center;
+        }
+        .coin-zone {
+            background: var(--card-bg); border-radius: 20px; padding: 20px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        .giant-coin {
+            width: 130px; height: 130px; border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #38bdf8, #0284c7, #0f172a);
+            border: 4px solid #7dd3fc; box-shadow: 0 0 25px rgba(56, 189, 248, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; font-weight: 900; color: #fff; cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .giant-coin:active { transform: scale(0.92); }
+        .limit-text { margin-top: 12px; font-size: 12px; color: #cbd5e1; }
+
+        /* Kunlik sovg'a (O'ng tarafda) */
+        .daily-box {
+            background: linear-gradient(180deg, rgba(14, 165, 233, 0.25), var(--card-bg));
+            border: 1px solid var(--accent); border-radius: 20px; padding: 14px 10px;
+            text-align: center; height: 100%; display: flex; flex-direction: column;
+            justify-content: space-between; align-items: center;
+        }
+        .daily-icon { font-size: 30px; }
+        .daily-btn {
+            background: var(--accent); color: #090d16; border: none; padding: 8px 10px;
+            border-radius: 10px; font-weight: bold; font-size: 12px; width: 100%; cursor: pointer;
+        }
+        .daily-btn:disabled { background: #334155; color: #94a3b8; }
+
+        /* Reklama banneri */
+        .ad-banner {
+            margin: 14px 16px; padding: 12px; background: rgba(30, 41, 59, 0.9);
+            border-radius: 14px; border: 1px dashed var(--accent);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Bo'limlar (Pages) */
+        .page { display: none; padding: 14px 16px; }
+        .page.active { display: block; }
+
+        /* Harem Grid (2-rasm) */
+        .search-bar {
+            width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid #334155;
+            background: var(--card-bg); color: #fff; margin-bottom: 12px;
+        }
+        .waifu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .waifu-card {
+            position: relative; border-radius: 12px; overflow: hidden; aspect-ratio: 3/4;
+            background: #1e293b; border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+        }
+        .waifu-card img { width: 100%; height: 100%; object-fit: cover; }
+        .rarity-dot {
+            position: absolute; top: 6px; left: 6px; width: 10px; height: 10px;
+            border-radius: 50%; background: #f59e0b; box-shadow: 0 0 6px #f59e0b;
+        }
+        .qty-badge {
+            position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.7);
+            padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: bold;
+        }
+
+        /* Modal (6-rasm: Waifu haqida to'liq ma'lumot) */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 100; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-content {
+            background: #0f172a; border-radius: 20px; width: 100%; max-width: 340px;
+            overflow: hidden; border: 1px solid var(--accent); position: relative;
+        }
+        .modal-img { width: 100%; height: 320px; object-fit: cover; }
+        .modal-body { padding: 16px; }
+        .modal-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+        .stat-box { background: #1e293b; padding: 10px; border-radius: 12px; text-align: center; }
+
+        /* Do'kon & O'yinlar */
+        .list-card {
+            background: var(--card-bg); padding: 12px; border-radius: 14px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        .mines-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 12px; }
+        .mine-cell {
+            aspect-ratio: 1; background: #1e293b; border-radius: 8px; display: flex;
+            align-items: center; justify-content: center; font-size: 18px; cursor: pointer;
+        }
+
+        /* Pastki Navigatsiya */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(9, 13, 22, 0.95);
+            backdrop-filter: blur(12px); display: flex; justify-content: space-around;
+            padding: 10px 0; border-top: 1px solid rgba(56, 189, 248, 0.2); z-index: 50;
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; font-size: 10px;
+            color: #94a3b8; cursor: pointer; gap: 4px;
+        }
+        .nav-item.active { color: var(--accent); font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>GRAB CHARACTER</h1>
-        <p>Mini ilovaga xush kelibsiz! Tez orada barcha funksiyalar ishga tushadi.</p>
+    <div class="bg-layer"></div>
+    <div class="bg-overlay"></div>
+
+    <!-- Yuqori qism -->
+    <div class="header">
+        <div class="brand">
+            <div class="emblem">GC</div>
+            <span>Grab Character</span>
+        </div>
+        <div class="balance-box">💎 <span id="gc-balance">600</span> GC</div>
     </div>
+
+    <!-- ASOSIY MENYU (1-rasm) -->
+    <div id="page-home" class="page active">
+        <div class="profile-card">
+            <img id="user-avatar" class="avatar" src="https://via.placeholder.com/50" alt="">
+            <div class="user-info">
+                <h3 id="user-name">Foydalanuvchi</h3>
+                <p id="user-id">ID: 000000000</p>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="coin-zone">
+                <div class="giant-coin" onclick="tapCoin()">GC</div>
+                <div class="limit-text">Limit: <span id="tap-limit">100</span> / 100</div>
+            </div>
+
+            <div class="daily-box">
+                <div class="daily-icon">🎁</div>
+                <div style="font-size: 12px; font-weight: bold;">Kunlik Sovg'a</div>
+                <div style="font-size: 11px; color: #38bdf8;">+50 GC</div>
+                <button id="daily-btn" class="daily-btn" onclick="claimDaily()">Olish</button>
+            </div>
+        </div>
+
+        <div class="ad-banner" id="ad-box">
+            <div>
+                <div style="font-size: 12px; font-weight: bold; color: #38bdf8;">📢 Homiylik e'loni</div>
+                <div style="font-size: 11px; color: #cbd5e1;">Yangi anime kanallarga obuna bo'ling!</div>
+            </div>
+            <button style="background: #38bdf8; border:none; padding: 6px 12px; border-radius: 8px; font-weight:bold;">Ochish</button>
+        </div>
+    </div>
+
+    <!-- HAREM BO'LIMI (2-rasm) -->
+    <div id="page-harem" class="page">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <h3>Sizning Haremingiz</h3>
+            <span style="color:#94a3b8; font-size:13px;">2 ta personaj</span>
+        </div>
+        <input type="text" class="search-bar" placeholder="Ism, anime, ID yoki daraja bo'yicha qidirish...">
+        <div class="waifu-grid">
+            <div class="waifu-card" onclick="openWaifu('Yanfei', 'Genshin Impact', 'BASIC', '92', '1', 'https://raw.githubusercontent.com/mansabov2010-jpg/grab-charakter/main/bg.jpg')">
+                <div class="rarity-dot"></div>
+                <div class="qty-badge">x1</div>
+                <img src="https://raw.githubusercontent.com/mansabov2010-jpg/grab-charakter/main/bg.jpg" alt="">
+            </div>
+        </div>
+    </div>
+
+    <!-- DO'KON BO'LIMI (4-rasm) -->
+    <div id="page-shop" class="page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3>🔥 Kunlik Takliflar</h3>
+            <span style="background:rgba(56,189,248,0.2); padding:4px 10px; border-radius:12px; font-size:12px; color:#38bdf8;">🕒 00:00 gacha</span>
+        </div>
+        <div class="list-card">
+            <div>
+                <b>Sangonomiya Kokomi</b>
+                <div style="font-size:12px; color:#94a3b8;">Basic • Genshin Impact</div>
+            </div>
+            <button class="daily-btn" style="width:auto;" onclick="buyItem(25)">💎 25 GC</button>
+        </div>
+    </div>
+
+    <!-- BOZOR BO'LIMI (5-rasm) -->
+    <div id="page-market" class="page">
+        <h3 style="margin-bottom:10px;">🏪 O'yinchilar Bozori</h3>
+        <input type="text" class="search-bar" placeholder="Bozordan qidirish...">
+        <div class="list-card">
+            <div>
+                <b>Barbara (ID: 25)</b>
+                <div style="font-size:12px; color:#94a3b8;">Sotuvchi: @user</div>
+            </div>
+            <button class="daily-btn" style="width:auto;" onclick="buyItem(50)">💎 50 GC</button>
+        </div>
+    </div>
+
+    <!-- O'YINLAR BO'LIMI: MINES (7-rasm) -->
+    <div id="page-games" class="page">
+        <h3>💣 Mines O'yini</h3>
+        <div class="list-card" style="margin-top:10px;">
+            <span>Stavka: <b>30 GC</b></span>
+            <button class="daily-btn" style="width:auto;" onclick="startMines()">Boshlash</button>
+        </div>
+        <div class="mines-grid" id="mines-board"></div>
+    </div>
+
+    <!-- WAIFU MA'LUMOT OYNASI (6-rasm) -->
+    <div id="waifu-modal" class="modal" onclick="this.style.display='none'">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <img id="m-img" class="modal-img" src="" alt="">
+            <div class="modal-body">
+                <span id="m-rarity" style="background:#f59e0b; color:#000; padding:2px 8px; border-radius:8px; font-size:11px; font-weight:bold;">BASIC</span>
+                <h2 id="m-name" style="margin-top:6px;">Ism</h2>
+                <p id="m-source" style="color:#94a3b8; font-size:13px;">Anime / O'yin</p>
+                <div class="modal-stats">
+                    <div class="stat-box"><b id="m-id">92</b><div style="font-size:10px; color:#94a3b8;">PERSONAJ ID</div></div>
+                    <div class="stat-box"><b id="m-qty">1</b><div style="font-size:10px; color:#94a3b8;">SONI</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PASTKI MENYU -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchPage('home', this)">🏠<span>ASOSIY</span></div>
+        <div class="nav-item" onclick="switchPage('harem', this)">🎒<span>HAREM</span></div>
+        <div class="nav-item" onclick="switchPage('shop', this)">🛍️<span>DO'KON</span></div>
+        <div class="nav-item" onclick="switchPage('market', this)">🏪<span>BOZOR</span></div>
+        <div class="nav-item" onclick="switchPage('games', this)">🎮<span>O'YINLAR</span></div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        if (tg.initDataUnsafe?.user) {
+            document.getElementById('user-name').innerText = tg.initDataUnsafe.user.first_name;
+            document.getElementById('user-id').innerText = "ID: " + tg.initDataUnsafe.user.id;
+        }
+
+        let balance = 600;
+        let limit = 100;
+
+        function tapCoin() {
+            if (limit > 0) {
+                balance += 1;
+                limit -= 1;
+                document.getElementById('gc-balance').innerText = balance;
+                document.getElementById('tap-limit').innerText = limit;
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        }
+
+        // Har tungi 00:00 da avtomatik yangilanish tekshiruvi
+        function checkDailyReset() {
+            const today = new Date().toLocaleDateString();
+            const lastClaim = localStorage.getItem('last_daily_claim');
+            const btn = document.getElementById('daily-btn');
+            if (lastClaim === today) {
+                btn.disabled = true;
+                btn.innerText = "Olindi";
+            } else {
+                btn.disabled = false;
+                btn.innerText = "Olish";
+            }
+        }
+        checkDailyReset();
+
+        function claimDaily() {
+            const today = new Date().toLocaleDateString();
+            localStorage.setItem('last_daily_claim', today);
+            balance += 50;
+            document.getElementById('gc-balance').innerText = balance;
+            checkDailyReset();
+            tg.showAlert("🎉 Kunlik +50 GC sovg'a olindi!");
+        }
+
+        function switchPage(pageId, el) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            el.classList.add('active');
+        }
+
+        function openWaifu(name, source, rarity, id, qty, img) {
+            document.getElementById('m-name').innerText = name;
+            document.getElementById('m-source').innerText = source;
+            document.getElementById('m-rarity').innerText = rarity;
+            document.getElementById('m-id').innerText = id;
+            document.getElementById('m-qty').innerText = qty;
+            document.getElementById('m-img').src = img;
+            document.getElementById('waifu-modal').style.display = 'flex';
+        }
+
+        function buyItem(price) {
+            if (balance >= price) {
+                balance -= price;
+                document.getElementById('gc-balance').innerText = balance;
+                tg.showAlert("✅ Muvaffaqiyatli sotib olindi!");
+            } else {
+                tg.showAlert("❌ GC tangangiz yetarli emas!");
+            }
+        }
+
+        function startMines() {
+            const board = document.getElementById('mines-board');
+            board.innerHTML = '';
+            for (let i = 0; i < 25; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'mine-cell';
+                cell.innerText = '❓';
+                cell.onclick = () => {
+                    cell.innerText = Math.random() > 0.25 ? '💎' : '💣';
+                };
+                board.appendChild(cell);
+            }
+        }
+    </script>
 </body>
 </html>
