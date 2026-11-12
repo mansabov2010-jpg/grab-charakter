@@ -4,7 +4,6 @@ conn = sqlite3.connect("grab_character.db", check_same_thread=False)
 cursor = conn.cursor()
 
 def init_db():
-    # Sozlamalar jadvali
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -12,7 +11,7 @@ def init_db():
     )
     """)
     
-    # Foydalanuvchilar jadvali (Balansi 0 dan boshlanadi)
+    # Har bir foydalanuvchining balansini, energiyasini va oxirgi sovg'a vaqtini saqlaydigan jadval
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
@@ -24,7 +23,6 @@ def init_db():
     )
     """)
     
-    # Waifular jadvali
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS waifus (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,20 +34,19 @@ def init_db():
     )
     """)
     
-    # Adminlar jadvali
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS admins (
         user_id INTEGER PRIMARY KEY
     )
     """)
     
-    # O'zingizning ID raqamingizni boshlang'ich admin qilamiz (7986354170)
+    # O'zingizning Telegram ID raqamingiz
     cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (7986354170,))
 
     defaults = {
         "tap_limit": "100",
         "tap_cooldown": "60",
-        "daily_reward": "50", # Admin o'zgartira oladigan kunlik sovg'a qiymati
+        "daily_reward": "50",
         "bg_blur": "6",
         "blue_shade": "0.35",
         "ad_text": "Yangi anime kanallarga obuna bo'ling!",
@@ -81,6 +78,7 @@ def add_admin(user_id: int):
     cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (user_id,))
     conn.commit()
 
+# Foydalanuvchini bazadan olish yoki yangi ochish
 def get_user(user_id: int, username: str, first_name: str):
     cursor.execute("SELECT balance, energy FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
@@ -90,3 +88,338 @@ def get_user(user_id: int, username: str, first_name: str):
         conn.commit()
         return 0, 100
     return row[0], row[1]
+
+# Foydalanuvchi balansini yangilab borish
+def update_user_balance(user_id: int, balance: int):
+    cursor.execute("UPDATE users SET balance = ? WHERE user_id = ?", (balance, user_id))
+    conn.commit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
