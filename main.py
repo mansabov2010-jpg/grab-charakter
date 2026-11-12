@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonWebApp, WebAppInfo
-from database import init_db, set_setting, get_setting, is_admin, add_admin, get_user, cursor, conn
+from database import init_db, set_setting, get_setting, is_admin, add_admin, get_user, update_user_balance, cursor, conn
 
 TOKEN = "9111857366:AAHx321dtWgJvO5zindpzWIY_1iWq4mgjlc"
 WEBAPP_URL = "https://mansabov2010-jpg.github.io/grab-charakter/"
@@ -23,12 +23,38 @@ class AdminStates(StatesGroup):
     add_waifu_img = State()
     new_admin_id = State()
 
+# --- VEB-SERVER VA API (Mini ilovadan ma'lumot olish va saqlash uchun) ---
 async def health_check(request):
     return web.Response(text="Grab Character Bot 24/7 ishlamoqda!")
 
+async def api_get_user(request):
+    try:
+        user_id = int(request.query.get("user_id", 0))
+        cursor.execute("SELECT balance, energy FROM users WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        if row:
+            return web.json_response({"balance": row[0], "energy": row[1]})
+        return web.json_response({"balance": 0, "energy": 100})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+async def api_update_user(request):
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        balance = int(data.get("balance", 0))
+        update_user_balance(user_id, balance)
+        return web.json_response({"status": "success"})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
 async def start_web_server():
     app = web.Application()
+    # CORS muammosiz ishlashi uchun oddiy yo'llar
     app.router.add_get('/', health_check)
+    app.router.add_get('/api/get_user', api_get_user)
+    app.router.add_post('/api/update_user', api_update_user)
+    
     runner = web.AppRunner(app)
     await runner.setup()
     port = int(os.environ.get("PORT", 8080))
@@ -37,7 +63,6 @@ async def start_web_server():
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    # Yangi foydalanuvchini bazaga qo'shish (Balansi 0 bo'lib boshlanadi)
     get_user(message.from_user.id, message.from_user.username or "", message.from_user.first_name)
 
     await bot.set_chat_menu_button(
@@ -48,7 +73,6 @@ async def cmd_start(message: types.Message):
         )
     )
 
-    # 2-rasmdagi kabi "MINI ILOVA" tugmasi xabar ostida chiqishi uchun
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="📢 KANALIMIZ", url="https://t.me/kanal_havolasi"),
@@ -76,7 +100,7 @@ async def admin_panel(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🪙 Tanga limiti", callback_data="set_tap_limit"),
          InlineKeyboardButton(text="⏳ Tiklanish vaqti", callback_data="set_tap_cooldown")],
-        [InlineKeyboardButton(text="🎁 Kunlik sovg'a qiymati", callback_data="set_daily_reward")], # Kunlik sovg'a sozlamasi
+        [InlineKeyboardButton(text="🎁 Kunlik sovg'a qiymati", callback_data="set_daily_reward")],
         [InlineKeyboardButton(text="📢 Reklama matni", callback_data="set_ad_text"),
          InlineKeyboardButton(text="🎯 Reklama tugmasi", callback_data="set_ad_trigger")],
         [InlineKeyboardButton(text="🎨 Fon xiraligi (Blur)", callback_data="set_bg_blur"),
@@ -85,7 +109,7 @@ async def admin_panel(message: types.Message):
         [InlineKeyboardButton(text="➕ Waifu qo'shish", callback_data="add_waifu")],
         [InlineKeyboardButton(text="🛡️ Yangi Admin qo'shish", callback_data="add_new_admin")]
     ])
-    await message.answer("⚙️ <b>To'liq Boshqaruv Paneli:</b>", parse_mode="HTML", reply_markup=kb)
+    await message.answer("⚙️ <b>Bot Boshqaruv Paneli:</b>", parse_mode="HTML", reply_markup=kb)
 
 @dp.callback_query(F.data == "add_new_admin")
 async def start_add_admin(call: types.CallbackQuery, state: FSMContext):
