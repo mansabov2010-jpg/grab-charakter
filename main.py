@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonWebApp, WebAppInfo
-from database import init_db, set_setting, get_setting, is_admin, add_admin, cursor, conn
+from database import init_db, set_setting, get_setting, is_admin, add_admin, get_user, cursor, conn
 
 TOKEN = "9111857366:AAHx321dtWgJvO5zindpzWIY_1iWq4mgjlc"
 WEBAPP_URL = "https://mansabov2010-jpg.github.io/grab-charakter/"
@@ -21,9 +21,8 @@ class AdminStates(StatesGroup):
     add_waifu_rarity = State()
     add_waifu_price = State()
     add_waifu_img = State()
-    new_admin_id = State() # Yangi admin ID sini kiritish uchun
+    new_admin_id = State()
 
-# Render 24/7 ishlashi uchun veb-server
 async def health_check(request):
     return web.Response(text="Grab Character Bot 24/7 ishlamoqda!")
 
@@ -38,31 +37,37 @@ async def start_web_server():
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
+    # Yangi foydalanuvchini bazaga qo'shish (Balansi 0 bo'lib boshlanadi)
+    get_user(message.from_user.id, message.from_user.username or "", message.from_user.first_name)
+
     await bot.set_chat_menu_button(
         chat_id=message.chat.id,
         menu_button=MenuButtonWebApp(
-            text="💎",
+            text="💎 Mini Ilova",
             web_app=WebAppInfo(url=WEBAPP_URL)
         )
     )
 
+    # 2-rasmdagi kabi "MINI ILOVA" tugmasi xabar ostida chiqishi uchun
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="📢 KANALIMIZ", url="https://t.me/kanal_havolasi"),
             InlineKeyboardButton(text="👥 GURUHIMIZ", url="https://t.me/guruh_havolasi")
+        ],
+        [
+            InlineKeyboardButton(text="🚀 MINI ILOVA", web_app=WebAppInfo(url=WEBAPP_URL))
         ]
     ])
 
     await message.answer(
         f"💎 <b>Gʀᴀʙ Cʜᴀʀᴀᴄᴛᴇʀ'ɢᴀ Xᴜꜱʜ Kᴇʟɪʙꜱɪᴢ!</b>\n\n"
         f"👋 Sᴀʟᴏᴍ, <b>{message.from_user.first_name}</b>!\n\n"
-        f"🌟 Bᴜ ʙᴏᴛ ᴏʀǫᴀʟɪ ꜱᴇᴠɪᴍʟɪ ᴘᴇʀꜱᴏɴᴀᴊʟᴀﺭɴɪ ʏɪɢ'ɪɴɢ ᴠᴀ ɢᴜʀᴜʜʟᴀʀɴɪ ᴊᴏɴʟᴀɴᴛɪʀɪɴɢ!\n"
+        f"🌟 Bᴜ ʙᴏᴛ ᴏʀǫᴀʟɪ ꜱᴇᴠɪᴍʟɪ ᴘᴇʀꜱᴏɴᴀᴊʟᴀʀɴɪ ʏɪɢ'ɪɴɢ ᴠᴀ ɢᴜʀᴜʜʟᴀʀɴɪ ᴊᴏɴʟᴀɴᴛɪʀɪɴɢ!\n"
         f"✨ — — — — — — — — — ✨",
         parse_mode="HTML",
         reply_markup=kb
     )
 
-# --- ADMIN PANEL (Faqat bazadagi adminlarira ochiladi) ---
 @dp.message(Command("admin"))
 async def admin_panel(message: types.Message):
     if not is_admin(message.from_user.id):
@@ -71,18 +76,17 @@ async def admin_panel(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🪙 Tanga limiti", callback_data="set_tap_limit"),
          InlineKeyboardButton(text="⏳ Tiklanish vaqti", callback_data="set_tap_cooldown")],
-        [InlineKeyboardButton(text="🎁 Kunlik sovg'a", callback_data="set_daily_reward")],
+        [InlineKeyboardButton(text="🎁 Kunlik sovg'a qiymati", callback_data="set_daily_reward")], # Kunlik sovg'a sozlamasi
         [InlineKeyboardButton(text="📢 Reklama matni", callback_data="set_ad_text"),
          InlineKeyboardButton(text="🎯 Reklama tugmasi", callback_data="set_ad_trigger")],
         [InlineKeyboardButton(text="🎨 Fon xiraligi (Blur)", callback_data="set_bg_blur"),
          InlineKeyboardButton(text="🔵 Ko'k rang ochligi", callback_data="set_blue_shade")],
         [InlineKeyboardButton(text="📊 Drop foizlari", callback_data="set_drop_basic")],
         [InlineKeyboardButton(text="➕ Waifu qo'shish", callback_data="add_waifu")],
-        [InlineKeyboardButton(text="🛡️ Yangi Admin qo'shish", callback_data="add_new_admin")] # Alohida bo'lim
+        [InlineKeyboardButton(text="🛡️ Yangi Admin qo'shish", callback_data="add_new_admin")]
     ])
     await message.answer("⚙️ <b>To'liq Boshqaruv Paneli:</b>", parse_mode="HTML", reply_markup=kb)
 
-# Yangi admin qo'shish tugmasi bosilganda
 @dp.callback_query(F.data == "add_new_admin")
 async def start_add_admin(call: types.CallbackQuery, state: FSMContext):
     if not is_admin(call.from_user.id):
