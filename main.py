@@ -1,65 +1,140 @@
 import asyncio
-import logging
-import sys
-from aiogram import Bot, Dispatcher, types
+import os
+from aiohttp import web
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonWebApp, WebAppInfo
+from database import init_db, set_setting, get_setting, cursor, conn
 
-# 1. Tokeningizni shu yerga to'g'ridan-to'g'ri yozasiz
-BOT_TOKEN = "9111857366:AAHx321dtWgJvO5zindpzWIY_1iWq4mgjlc"
+TOKEN = "BOT_TOKENINGIZNI_SHU_YERGA_QO_YING"
+ADMIN_ID = 7986354170 # Sizning Telegram ID
+WEBAPP_URL = "https://mansabov2010-jpg.github.io/grab-charakter/"
 
-# 2. Bot va Dispatcher ni sozlaymiz
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+class AdminStates(StatesGroup):
+    waiting_value = State()
+    add_waifu_name = State()
+    add_waifu_source = State()
+    add_waifu_rarity = State()
+    add_waifu_price = State()
+    add_waifu_img = State()
 
-# 3. Tugmalarni yasash funksiyasi
-def get_start_keyboard():
-  keyboard = InlineKeyboardMarkup(
-      inline_keyboard=[
-          [
-              InlineKeyboardButton(
-                  text="📢 ᴋᴀɴᴀʟɪᴍɪᴢ", url="https://t.me/kanal_linki"
-              ),
-              InlineKeyboardButton(
-                  text="👥 ɢᴜʀᴜʜɪᴍɪᴢ", url="https://t.me/guruh_linki"
-              ),
-          ],
-          [
-              InlineKeyboardButton(
-                  text="🚀 ᴍɪɴɪ ɪʟᴏᴠᴀ",
-                  web_app=types.WebAppInfo(url="https://mansabov2010-jpg.github.io/grab-charakter/"),
-              )
-          ],
-      ]
-  )
-  return keyboard
+# Render 24/7 ishlashi uchun veb-server
+async def health_check(request):
+    return web.Response(text="Grab Character Bot 24/7 ishlamoqda!")
 
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
 
-# 4. /start buyrug'i kelganda ishlaydigan qism
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-  user_name = message.from_user.first_name
+    await bot.set_chat_menu_button(
+        chat_id=message.chat.id,
+        menu_button=MenuButtonWebApp(
+            text="💎",
+            web_app=WebAppInfo(url=WEBAPP_URL)
+        )
+    )
 
-  welcome_text = (
-      f"✨━ ━━━━━━━━━━━━ ━✨\n"
-      f"💎 Gʀᴀʙ Cʜᴀʀᴀᴄᴛᴇʀ'ɢᴀ Xᴜꜱʜ Kᴇʟɪʙꜱɪᴢ! ✊\n\n"
-      f"👋 Sᴀʟᴏᴍ, {user_name}!\n\n"
-      f"🌟 Bᴜ ʙᴏᴛ oʀqᴀʟɪ sᴇvimli pᴇrsoɴᴀjlᴀrni yig'ing vᴀ guruhlᴀrni jоnlᴀntiring!\n"
-      f"✨━ ━ ━ ━ ━ ━ ━ ━ ━ ━ ━ ━ ✨"
-  )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📢 KANALIMIZ", url="https://t.me/kanal_havolasi"),
+            InlineKeyboardButton(text="👥 GURUHIMIZ", url="https://t.me/guruh_havolasi")
+        ]
+    ])
 
-  await message.answer(
-      welcome_text, reply_markup=get_start_keyboard(), parse_mode="Markdown"
-  )
+    await message.answer(
+        f"💎 <b>Gʀᴀʙ Cʜᴀʀᴀᴄᴛᴇʀ'ɢᴀ Xᴜꜱʜ Kᴇʟɪʙꜱɪᴢ!</b>\n\n"
+        f"👋 Sᴀʟᴏᴍ, <b>{message.from_user.first_name}</b>!\n\n"
+        f"🌟 Bᴜ ʙᴏᴛ ᴏʀǫᴀʟɪ ꜱᴇᴠɪᴍʟɪ ᴘᴇʀꜱᴏɴᴀᴊʟᴀʀɴɪ ʏɪɢ'ɪɴɢ ᴠᴀ ɢᴜʀᴜʜʟᴀʀɴɪ ᴊᴏɴʟᴀɴᴛɪʀɪɴɢ!\n"
+        f"✨ — — — — — — — — — ✨",
+        parse_mode="HTML",
+        reply_markup=kb
+    )
 
+@dp.message(Command("admin"))
+async def admin_panel(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🪙 Tanga limiti", callback_data="set_tap_limit"),
+         InlineKeyboardButton(text="⏳ Tiklanish vaqti", callback_data="set_tap_cooldown")],
+        [InlineKeyboardButton(text="🎁 Kunlik sovg'a", callback_data="set_daily_reward")],
+        [InlineKeyboardButton(text="📢 Reklama matni", callback_data="set_ad_text"),
+         InlineKeyboardButton(text="🎯 Reklama tugmasi", callback_data="set_ad_trigger")],
+        [InlineKeyboardButton(text="🎨 Fon xiraligi (Blur)", callback_data="set_bg_blur"),
+         InlineKeyboardButton(text="🔵 Ko'k rang ochligi", callback_data="set_blue_shade")],
+        [InlineKeyboardButton(text="📊 Drop foizlari", callback_data="set_drop_basic")],
+        [InlineKeyboardButton(text="➕ Waifu qo'shish", callback_data="add_waifu")]
+    ])
+    await message.answer("⚙️ <b>Boshqaruv Paneli:</b>", parse_mode="HTML", reply_markup=kb)
 
-# 5. Botni ishga tushiruvchi asosiy funksiya
+@dp.callback_query(F.data.startswith("set_"))
+async def ask_setting_value(call: types.CallbackQuery, state: FSMContext):
+    key = call.data.replace("set_", "")
+    await state.update_data(setting_key=key)
+    await state.set_state(AdminStates.waiting_value)
+    await call.message.answer(f"✏️ <b>{key}</b> uchun yangi qiymat yuboring (Hozirgi: <code>{get_setting(key)}</code>):", parse_mode="HTML")
+
+@dp.message(AdminStates.waiting_value)
+async def save_setting_value(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    set_setting(data["setting_key"], message.text)
+    await state.clear()
+    await message.answer("✅ Sozlama yangilandi!")
+
+@dp.callback_query(F.data == "add_waifu")
+async def start_add_waifu(call: types.CallbackQuery, state: FSMContext):
+    await state.set_state(AdminStates.add_waifu_name)
+    await call.message.answer("1️⃣ Waifu ismini kiriting:")
+
+@dp.message(AdminStates.add_waifu_name)
+async def w_name(message: types.Message, state: FSMContext):
+    await state.update_data(name=message.text)
+    await state.set_state(AdminStates.add_waifu_source)
+    await message.answer("2️⃣ Manbasini kiriting (Anime yoki o'yin):")
+
+@dp.message(AdminStates.add_waifu_source)
+async def w_source(message: types.Message, state: FSMContext):
+    await state.update_data(source=message.text)
+    await state.set_state(AdminStates.add_waifu_rarity)
+    await message.answer("3️⃣ Darajasini kiriting (Basic, Rare, Divine, Season):")
+
+@dp.message(AdminStates.add_waifu_rarity)
+async def w_rarity(message: types.Message, state: FSMContext):
+    await state.update_data(rarity=message.text)
+    await state.set_state(AdminStates.add_waifu_price)
+    await message.answer("4️⃣ Narxini kiriting (raqamda):")
+
+@dp.message(AdminStates.add_waifu_price)
+async def w_price(message: types.Message, state: FSMContext):
+    await state.update_data(price=int(message.text))
+    await state.set_state(AdminStates.add_waifu_img)
+    await message.answer("5️⃣ Rasm havolasini (URL) yuboring:")
+
+@dp.message(AdminStates.add_waifu_img)
+async def w_img(message: types.Message, state: FSMContext):
+    d = await state.get_data()
+    cursor.execute("INSERT INTO waifus (name, source, rarity, price, image_url) VALUES (?, ?, ?, ?, ?)",
+                   (d['name'], d['source'], d['rarity'], d['price'], message.text))
+    conn.commit()
+    await state.clear()
+    await message.answer(f"✅ <b>{d['name']}</b> bazaga qo'shildi!", parse_mode="HTML")
+
 async def main():
-  logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-  print("Grab Character boti ishga tushdi...")
-  await dp.start_polling(bot)
-
+    init_db()
+    await start_web_server()
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-  asyncio.run(main())
+    asyncio.run(main())
