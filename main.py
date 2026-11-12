@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, MenuButtonWebApp, WebAppInfo
-from database import init_db, set_setting, get_setting, is_admin, add_admin, get_user, update_user_balance, cursor, conn
+from database import init_db, set_setting, get_setting, get_all_settings, is_admin, add_admin, get_user, update_user_balance, cursor, conn
 
 TOKEN = "9111857366:AAHx321dtWgJvO5zindpzWIY_1iWq4mgjlc"
 WEBAPP_URL = "https://mansabov2010-jpg.github.io/grab-charakter/"
@@ -23,7 +23,7 @@ class AdminStates(StatesGroup):
     add_waifu_img = State()
     new_admin_id = State()
 
-# --- VEB-SERVER VA API (Mini ilovadan ma'lumot olish va saqlash uchun) ---
+# Veb-server va API (Render uxlab qolmasligi va mini ilova bilan ishlash uchun)
 async def health_check(request):
     return web.Response(text="Grab Character Bot 24/7 ishlamoqda!")
 
@@ -32,9 +32,19 @@ async def api_get_user(request):
         user_id = int(request.query.get("user_id", 0))
         cursor.execute("SELECT balance, energy FROM users WHERE user_id = ?", (user_id,))
         row = cursor.fetchone()
+        
+        # Haremda foydalanuvchining personajlarini olish
+        cursor.execute("""
+            SELECT w.id, w.name, w.source, w.rarity, w.price, w.image_url 
+            FROM user_waifus uw JOIN waifus w ON uw.waifu_id = w.id WHERE uw.user_id = ?
+        """, (user_id,))
+        waifus = [{"id": r[0], "name": r[1], "source": r[2], "rarity": r[3], "price": r[4], "image_url": r[5]} for r in cursor.fetchall()]
+
+        settings = get_all_settings()
+
         if row:
-            return web.json_response({"balance": row[0], "energy": row[1]})
-        return web.json_response({"balance": 0, "energy": 100})
+            return web.json_response({"balance": row[0], "energy": row[1], "waifus": waifus, "settings": settings})
+        return web.json_response({"balance": 0, "energy": 100, "waifus": [], "settings": settings})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=400)
 
@@ -48,12 +58,26 @@ async def api_update_user(request):
     except Exception as e:
         return web.json_response({"error": str(e)}, status=400)
 
+async def api_admin_settings(request):
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        if not is_admin(user_id):
+            return web.json_response({"error": "Unauthorized"}, status=403)
+        
+        key = data.get("key")
+        value = data.get("value")
+        set_setting(key, value)
+        return web.json_response({"status": "success"})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
 async def start_web_server():
     app = web.Application()
-    # CORS muammosiz ishlashi uchun oddiy yo'llar
     app.router.add_get('/', health_check)
     app.router.add_get('/api/get_user', api_get_user)
     app.router.add_post('/api/update_user', api_update_user)
+    app.router.add_post('/api/admin_settings', api_admin_settings)
     
     runner = web.AppRunner(app)
     await runner.setup()
@@ -100,7 +124,8 @@ async def admin_panel(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🪙 Tanga limiti", callback_data="set_tap_limit"),
          InlineKeyboardButton(text="⏳ Tiklanish vaqti", callback_data="set_tap_cooldown")],
-        [InlineKeyboardButton(text="🎁 Kunlik sovg'a qiymati", callback_data="set_daily_reward")],
+        [InlineKeyboardButton(text="🎁 Kunlik tanga", callback_data="set_daily_reward"),
+         InlineKeyboardButton(text="🎁 Kunlik waifu", callback_data="set_daily_waifu_reward")],
         [InlineKeyboardButton(text="📢 Reklama matni", callback_data="set_ad_text"),
          InlineKeyboardButton(text="🎯 Reklama tugmasi", callback_data="set_ad_trigger")],
         [InlineKeyboardButton(text="🎨 Fon xiraligi (Blur)", callback_data="set_bg_blur"),
@@ -177,7 +202,7 @@ async def w_rarity(message: types.Message, state: FSMContext):
 async def w_price(message: types.Message, state: FSMContext):
     await state.update_data(price=int(message.text))
     await state.set_state(AdminStates.add_waifu_img)
-    await message.answer("5️⃣ Rasm havolasini (URL) yuboring:")
+    await message.answer("5️⃣ Rasm havolasiga (URL) yuboring:")
 
 @dp.message(AdminStates.add_waifu_img)
 async def w_img(message: types.Message, state: FSMContext):
