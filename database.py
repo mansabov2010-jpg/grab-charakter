@@ -1,6 +1,6 @@
 import sqlite3
 
-conn = sqlite3.connect("grab_character.db")
+conn = sqlite3.connect("grab_character.db", check_same_thread=False)
 cursor = conn.cursor()
 
 def init_db():
@@ -9,6 +9,18 @@ def init_db():
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT
+    )
+    """)
+    
+    # Foydalanuvchilar jadvali (Balansi 0 dan boshlanadi)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY,
+        username TEXT,
+        first_name TEXT,
+        balance INTEGER DEFAULT 0,
+        energy INTEGER DEFAULT 100,
+        last_daily TEXT DEFAULT ''
     )
     """)
     
@@ -24,21 +36,20 @@ def init_db():
     )
     """)
     
-    # ADMINLAR JADVALI (Yangi qo'shildi)
+    # Adminlar jadvali
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS admins (
         user_id INTEGER PRIMARY KEY
     )
     """)
     
-    # O'zingizning Telegram ID raqamingizni boshlang'ich admin sifatida kiritib qo'yamiz
-    # 7986354170 o'rniga o'z ID raqamingizni yozishingiz mumkin
+    # O'zingizning ID raqamingizni boshlang'ich admin qilamiz (7986354170)
     cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (7986354170,))
 
     defaults = {
         "tap_limit": "100",
         "tap_cooldown": "60",
-        "daily_reward": "50",
+        "daily_reward": "50", # Admin o'zgartira oladigan kunlik sovg'a qiymati
         "bg_blur": "6",
         "blue_shade": "0.35",
         "ad_text": "Yangi anime kanallarga obuna bo'ling!",
@@ -62,12 +73,20 @@ def get_setting(key):
     row = cursor.fetchone()
     return row[0] if row else None
 
-# Admin ekanligini tekshirish funksiyasi
 def is_admin(user_id: int) -> bool:
     cursor.execute("SELECT user_id FROM admins WHERE user_id = ?", (user_id,))
     return cursor.fetchone() is not None
 
-# Yangi admin qo'shish
 def add_admin(user_id: int):
     cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (user_id,))
     conn.commit()
+
+def get_user(user_id: int, username: str, first_name: str):
+    cursor.execute("SELECT balance, energy FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute("INSERT INTO users (user_id, username, first_name, balance, energy) VALUES (?, ?, ?, 0, 100)", 
+                       (user_id, username, first_name))
+        conn.commit()
+        return 0, 100
+    return row[0], row[1]
